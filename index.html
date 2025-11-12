@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指令冒险家</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        
+        .game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 30px;
+        }
+        
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 2px;
+            background-color: #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            position: relative;
+        }
+        
+        .grid-cell {
+            width: 60px;
+            height: 60px;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            position: relative;
+        }
+        
+        .player {
+            position: absolute;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .wall {
+            background-color: #666;
+        }
+        
+        .target {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 200px;
+        }
+        
+        .command-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover:not(:disabled) {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .run-reset-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #runBtn {
+            background-color: #008CBA;
+        }
+        
+        #runBtn:hover:not(:disabled) {
+            background-color: #007B9A;
+        }
+        
+        #resetBtn {
+            background-color: #f44336;
+        }
+        
+        #resetBtn:hover:not(:disabled) {
+            background-color: #d32f2f;
+        }
+        
+        .sequence-area {
+            border: 2px solid #ddd;
+            min-height: 100px;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-content: flex-start;
+        }
+        
+        .command-tag {
+            background-color: #e0e0e0;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .command-tag .remove {
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .status-message {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            min-height: 30px;
+            padding: 10px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .victory {
+            color: #4CAF50;
+            background-color: #e8f5e9;
+            border: 2px solid #4CAF50;
+            animation: pulse 1s ease-in-out 2;
+        }
+        
+        .failure {
+            color: #f44336;
+            background-color: #ffebee;
+            border: 2px solid #f44336;
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- 游戏网格地图 -->
+        <div class="game-grid" id="gameGrid">
+            <!-- 网格单元格将由JavaScript动态生成 -->
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <h2>控制面板</h2>
+            
+            <!-- 指令按钮 -->
+            <div class="command-buttons">
+                <button id="moveForwardBtn">前进</button>
+                <button id="turnLeftBtn">左转</button>
+                <button id="turnRightBtn">右转</button>
+            </div>
+            
+            <!-- 执行序列区域 -->
+            <div>
+                <h3>执行序列</h3>
+                <div class="sequence-area" id="sequenceArea"></div>
+            </div>
+            
+            <!-- 运行和重置按钮 -->
+            <div class="run-reset-buttons">
+                <button id="runBtn">运行</button>
+                <button id="resetBtn">重置</button>
+            </div>
+            
+            <!-- 状态消息 -->
+            <div class="status-message" id="statusMessage"></div>
+        </div>
+    </div>
+    
+    <script>
+        // 游戏状态变量
+        const gridSize = 5;
+        
+        // 地图定义：0=空地, 1=墙壁, 2=起点, 3=终点
+        const map = [
+            [0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 0],
+            [0, 2, 0, 0, 0],
+            [0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 3]
+        ];
+        
+        let playerPosition = { x: 1, y: 2 }; // 从地图中读取起点位置
+        let playerDirection = 0; // 0=上, 1=右, 2=下, 3=左
+        let targetPosition = { x: 4, y: 4 }; // 从地图中读取终点位置
+        let commandSequence = []; // 指令序列
+        
+        // DOM元素
+        const gameGrid = document.getElementById('gameGrid');
+        const sequenceArea = document.getElementById('sequenceArea');
+        const moveForwardBtn = document.getElementById('moveForwardBtn');
+        const turnLeftBtn = document.getElementById('turnLeftBtn');
+        const turnRightBtn = document.getElementById('turnRightBtn');
+        const runBtn = document.getElementById('runBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        // 游戏控制变量
+        let isExecuting = false;
+        let playerElement = null;
+        
+        // 方向常量 - 修正了方向定义
+        const DIRECTIONS = [
+            { x: 0, y: -1, rotation: 0 },   // 上
+            { x: 1, y: 0, rotation: 90 },   // 右
+            { x: 0, y: 1, rotation: 180 },  // 下
+            { x: -1, y: 0, rotation: 270 }   // 左
+        ];
+        
+        // 初始化网格
+        function initGrid() {
+            gameGrid.innerHTML = '';
+            
+            // 从地图数据中查找起点和终点
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    if (map[y][x] === 2) { // 起点
+                        playerPosition = { x, y };
+                    } else if (map[y][x] === 3) { // 终点
+                        targetPosition = { x, y };
+                    }
+                }
+            }
+            
+            // 创建5x5网格
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    
+                    // 设置墙壁
+                    if (map[y][x] === 1) {
+                        cell.classList.add('wall');
+                        cell.textContent = '█';
+                    }
+                    
+                    // 设置终点位置
+                    if (x === targetPosition.x && y === targetPosition.y) {
+                        cell.classList.add('target');
+                        cell.textContent = '⭐';
+                    }
+                    
+                    gameGrid.appendChild(cell);
+                }
+            }
+            
+            // 创建玩家元素
+            playerElement = document.createElement('div');
+            playerElement.className = 'player';
+            playerElement.textContent = '▲';
+            playerElement.style.transform = `rotate(${DIRECTIONS[playerDirection].rotation}deg)`;
+            gameGrid.appendChild(playerElement);
+            
+            // 设置玩家初始位置
+            updatePlayerPosition();
+        }
+        
+        // 更新玩家位置
+        function updatePlayerPosition() {
+            if (!playerElement) return;
+            
+            const cellSize = 60; // 每个格子的大小
+            const gap = 2; // 格子间距
+            const padding = 10; // 网格内边距
+            
+            const x = playerPosition.x * (cellSize + gap) + padding + cellSize / 2;
+            const y = playerPosition.y * (cellSize + gap) + padding + cellSize / 2;
+            
+            playerElement.style.left = `${x - 12}px`; // 12是箭头大小的一半
+            playerElement.style.top = `${y - 12}px`;
+            playerElement.style.transform = `rotate(${DIRECTIONS[playerDirection].rotation}deg)`;
+        }
+        
+        // 执行前进指令
+        function moveForward() {
+            const direction = DIRECTIONS[playerDirection];
+            const newX = playerPosition.x + direction.x;
+            const newY = playerPosition.y + direction.y;
+            
+            // 检查是否出界
+            if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize) {
+                return false; // 移动失败
+            }
+            
+            // 检查是否撞墙
+            if (map[newY][newX] === 1) {
+                return false; // 移动失败
+            }
+            
+            // 移动玩家
+            playerPosition.x = newX;
+            playerPosition.y = newY;
+            updatePlayerPosition();
+            return true; // 移动成功
+        }
+        
+        // 执行左转指令
+        function turnLeft() {
+            playerDirection = (playerDirection + 3) % 4; // 左转相当于逆时针转90度
+            updatePlayerPosition();
+            return true;
+        }
+        
+        // 执行右转指令
+        function turnRight() {
+            playerDirection = (playerDirection + 1) % 4; // 右转相当于顺时针转90度
+            updatePlayerPosition();
+            return true;
+        }
+        
+        // 检查是否到达终点
+        function checkVictory() {
+            return playerPosition.x === targetPosition.x && playerPosition.y === targetPosition.y;
+        }
+        
+        // 重置游戏状态
+        function resetGame() {
+            // 重新从地图中查找起点位置
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    if (map[y][x] === 2) {
+                        playerPosition = { x, y };
+                        break;
+                    }
+                }
+            }
+            
+            playerDirection = 0; // 重置为向上
+            commandSequence = [];
+            updatePlayerPosition();
+            updateSequenceDisplay();
+            statusMessage.textContent = '';
+            statusMessage.className = 'status-message';
+            isExecuting = false;
+            disableControls(false);
+        }
+        
+        // 添加指令到序列
+        function addCommand(command) {
+            commandSequence.push(command);
+            updateSequenceDisplay();
+        }
+        
+        // 更新指令序列显示
+        function updateSequenceDisplay() {
+            sequenceArea.innerHTML = '';
+            
+            commandSequence.forEach((command, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'command-tag';
+                
+                // 显示指令文本
+                let commandText = '';
+                switch (command) {
+                    case 'moveForward': commandText = '前进'; break;
+                    case 'turnLeft': commandText = '左转'; break;
+                    case 'turnRight': commandText = '右转'; break;
+                }
+                
+                tag.innerHTML = `${commandText} <span class="remove" data-index="${index}">&times;</span>`;
+                sequenceArea.appendChild(tag);
+            });
+            
+            // 添加删除事件监听
+            document.querySelectorAll('.command-tag .remove').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    removeCommand(index);
+                });
+            });
+        }
+        
+        // 移除指定索引的指令
+        function removeCommand(index) {
+            if (index >= 0 && index < commandSequence.length) {
+                commandSequence.splice(index, 1);
+                updateSequenceDisplay();
+            }
+        }
+        
+        // 执行指令序列
+        async function executeCommands() {
+            if (isExecuting || commandSequence.length === 0) return;
+            
+            isExecuting = true;
+            disableControls(true);
+            
+            // 保存初始状态，以便失败时恢复
+            const initialPosition = { ...playerPosition };
+            const initialDirection = playerDirection;
+            
+            // 逐步执行每个指令
+            for (let i = 0; i < commandSequence.length; i++) {
+                const command = commandSequence[i];
+                let success = false;
+                
+                // 执行对应的指令
+                switch (command) {
+                    case 'moveForward':
+                        success = moveForward();
+                        break;
+                    case 'turnLeft':
+                        success = turnLeft();
+                        break;
+                    case 'turnRight':
+                        success = turnRight();
+                        break;
+                }
+                
+                // 检查是否失败（主要针对前进指令）
+                if (!success) {
+                    showStatus('失败！撞墙或出界', 'failure');
+                    
+                    // 等待一会儿再恢复初始状态
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // 恢复初始位置和方向
+                    playerPosition = initialPosition;
+                    playerDirection = initialDirection;
+                    updatePlayerPosition();
+                    break;
+                }
+                
+                // 检查是否胜利
+                if (checkVictory()) {
+                    showStatus('胜利！', 'victory');
+                    break;
+                }
+                
+                // 等待0.5秒后执行下一个指令
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // 执行完成后启用控件
+            isExecuting = false;
+            disableControls(false);
+        }
+        
+        // 禁用/启用控制按钮
+        function disableControls(disabled) {
+            moveForwardBtn.disabled = disabled;
+            turnLeftBtn.disabled = disabled;
+            turnRightBtn.disabled = disabled;
+            runBtn.disabled = disabled;
+            resetBtn.disabled = disabled;
+        }
+        
+        // 显示状态消息
+        function showStatus(message, type) {
+            // 清除之前的动画类
+            statusMessage.className = 'status-message';
+            
+            // 触发重排
+            void statusMessage.offsetWidth;
+            
+            // 设置消息和类型
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            
+            // 如果是胜利消息，3秒后清除
+            if (type === 'victory') {
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                    statusMessage.className = 'status-message';
+                }, 3000);
+            }
+        }
+        
+        // 绑定按钮事件
+        function bindEvents() {
+            moveForwardBtn.addEventListener('click', () => addCommand('moveForward'));
+            turnLeftBtn.addEventListener('click', () => addCommand('turnLeft'));
+            turnRightBtn.addEventListener('click', () => addCommand('turnRight'));
+            runBtn.addEventListener('click', executeCommands);
+            resetBtn.addEventListener('click', resetGame);
+        }
+        
+        // 页面加载完成后初始化游戏
+        window.addEventListener('load', () => {
+            initGrid();
+            bindEvents();
+        });
+    </script>
+</body>
+</html>
