@@ -69,6 +69,37 @@
             min-width: 200px;
         }
         
+        .level-info {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .level-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .level-buttons button {
+            flex: 1;
+            min-width: 50px;
+            background-color: #2196F3;
+        }
+        
+        .level-buttons button.active {
+            background-color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .next-level-btn {
+            background-color: #FF9800;
+        }
+        
+        .next-level-btn:hover:not(:disabled) {
+            background-color: #F57C00;
+        }
+        
         .command-buttons {
             display: flex;
             flex-direction: column;
@@ -191,6 +222,19 @@
         <div class="control-panel">
             <h2>控制面板</h2>
             
+            <!-- 关卡信息 -->
+            <div class="level-info">
+                <h3 id="levelDisplay">关卡1：入门挑战</h3>
+                <div id="levelButtons" class="level-buttons">
+                    <!-- 关卡按钮将通过JavaScript动态生成 -->
+                </div>
+                <button id="nextLevelBtn" class="next-level-btn">下一关</button>
+            </div>
+            
+            <div class="game-instructions" style="padding: 10px; background-color: #f9f9f9; border-radius: 5px; margin-bottom: 15px; font-size: 14px; color: #333;">
+                游戏说明：玩家需要控制三角形（▲）去到星星（⭐）所在的位置。三角形初始方向为向上。
+            </div>
+            
             <!-- 指令按钮 -->
             <div class="command-buttons">
                 <button id="moveForwardBtn">前进</button>
@@ -218,16 +262,69 @@
     <script>
         // 游戏状态变量
         const gridSize = 5;
+        let currentLevel = 0; // 当前关卡索引
+        let unlockedLevels = 1; // 已解锁的关卡数量
         
-        // 地图定义：0=空地, 1=墙壁, 2=起点, 3=终点
-        const map = [
-            [0, 0, 0, 0, 0],
-            [0, 1, 1, 0, 0],
-            [0, 2, 0, 0, 0],
-            [0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 3]
+        // 多地图关卡系统：0=空地, 1=墙壁, 2=起点, 3=终点
+        const levels = [
+            // 关卡1 - 简单
+            {
+                map: [
+                    [0, 0, 0, 0, 0],
+                    [0, 1, 1, 0, 0],
+                    [0, 2, 0, 0, 0],
+                    [0, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 3]
+                ],
+                description: "关卡1: 简单路径"
+            },
+            // 关卡2 - 难度增加
+            {
+                map: [
+                    [0, 0, 0, 0, 0],
+                    [0, 1, 0, 1, 0],
+                    [0, 1, 2, 1, 0],
+                    [0, 1, 0, 1, 0],
+                    [0, 0, 0, 0, 3]
+                ],
+                description: "关卡2: 弯曲路径"
+            },
+            // 关卡3 - 中等难度
+            {
+                map: [
+                    [3, 0, 0, 0, 0],
+                    [1, 1, 1, 1, 0],
+                    [0, 0, 0, 0, 0],
+                    [0, 1, 1, 1, 1],
+                    [0, 0, 2, 0, 0]
+                ],
+                description: "关卡3: 上下分隔"
+            },
+            // 关卡4 - 高难度
+            {
+                map: [
+                    [0, 1, 0, 1, 3],
+                    [0, 1, 0, 1, 0],
+                    [0, 0, 0, 1, 0],
+                    [1, 1, 0, 0, 0],
+                    [0, 2, 0, 1, 0]
+                ],
+                description: "关卡4: 迷宫挑战"
+            },
+            // 关卡5 - 最高难度
+            {
+                map: [
+                    [0, 1, 0, 1, 0],
+                    [0, 0, 0, 0, 0],
+                    [1, 0, 1, 0, 1],
+                    [0, 0, 0, 0, 0],
+                    [0, 1, 2, 1, 3]
+                ],
+                description: "关卡5: 终极挑战"
+            }
         ];
         
+        let currentMap = levels[currentLevel].map; // 当前地图
         let playerPosition = { x: 1, y: 2 }; // 从地图中读取起点位置
         let playerDirection = 0; // 0=上, 1=右, 2=下, 3=左
         let targetPosition = { x: 4, y: 4 }; // 从地图中读取终点位置
@@ -259,12 +356,12 @@
         function initGrid() {
             gameGrid.innerHTML = '';
             
-            // 从地图数据中查找起点和终点
+            // 从当前地图数据中查找起点和终点
             for (let y = 0; y < gridSize; y++) {
                 for (let x = 0; x < gridSize; x++) {
-                    if (map[y][x] === 2) { // 起点
+                    if (currentMap[y][x] === 2) { // 起点
                         playerPosition = { x, y };
-                    } else if (map[y][x] === 3) { // 终点
+                    } else if (currentMap[y][x] === 3) { // 终点
                         targetPosition = { x, y };
                     }
                 }
@@ -279,7 +376,7 @@
                     cell.dataset.y = y;
                     
                     // 设置墙壁
-                    if (map[y][x] === 1) {
+                    if (currentMap[y][x] === 1) {
                         cell.classList.add('wall');
                         cell.textContent = '█';
                     }
@@ -293,6 +390,9 @@
                     gameGrid.appendChild(cell);
                 }
             }
+            
+            // 更新关卡显示
+            updateLevelDisplay();
             
             // 创建玩家元素
             playerElement = document.createElement('div');
@@ -333,7 +433,7 @@
             }
             
             // 检查是否撞墙
-            if (map[newY][newX] === 1) {
+            if (currentMap[newY][newX] === 1) {
                 return false; // 移动失败
             }
             
@@ -360,15 +460,29 @@
         
         // 检查是否到达终点
         function checkVictory() {
-            return playerPosition.x === targetPosition.x && playerPosition.y === targetPosition.y;
+            const victory = playerPosition.x === targetPosition.x && playerPosition.y === targetPosition.y;
+            if (victory) {
+                // 解锁下一关
+                if (currentLevel + 1 >= unlockedLevels) {
+                    unlockedLevels = currentLevel + 2;
+                }
+                
+                // 存储解锁的关卡（可选：使用localStorage保存进度）
+                try {
+                    localStorage.setItem('adventureGameUnlockedLevels', unlockedLevels.toString());
+                } catch (e) {
+                    // 忽略localStorage错误
+                }
+            }
+            return victory;
         }
         
         // 重置游戏状态
         function resetGame() {
-            // 重新从地图中查找起点位置
+            // 重新从当前地图中查找起点位置
             for (let y = 0; y < gridSize; y++) {
                 for (let x = 0; x < gridSize; x++) {
-                    if (map[y][x] === 2) {
+                    if (currentMap[y][x] === 2) {
                         playerPosition = { x, y };
                         break;
                     }
@@ -383,6 +497,39 @@
             statusMessage.className = 'status-message';
             isExecuting = false;
             disableControls(false);
+        }
+        
+        // 切换到指定关卡
+        function switchToLevel(levelIndex) {
+            if (levelIndex >= 0 && levelIndex < levels.length && levelIndex < unlockedLevels) {
+                currentLevel = levelIndex;
+                currentMap = levels[currentLevel].map;
+                resetGame();
+                initGrid();
+                showStatus(`已切换到${levels[currentLevel].description}`, '');
+            }
+        }
+        
+        // 切换到下一关
+        function nextLevel() {
+            if (currentLevel < levels.length - 1) {
+                // 确保下一关已解锁
+                if (currentLevel + 1 >= unlockedLevels) {
+                    unlockedLevels = currentLevel + 2;
+                }
+                switchToLevel(currentLevel + 1);
+            }
+        }
+        
+        // 更新关卡显示
+        function updateLevelDisplay() {
+            const levelDisplay = document.getElementById('levelDisplay');
+            if (levelDisplay) {
+                levelDisplay.textContent = levels[currentLevel].description;
+            }
+            
+            // 更新关卡选择按钮状态
+            updateLevelButtons();
         }
         
         // 添加指令到序列
@@ -473,7 +620,11 @@
                 
                 // 检查是否胜利
                 if (checkVictory()) {
-                    showStatus('胜利！', 'victory');
+                    if (currentLevel < levels.length - 1) {
+                        showStatus('胜利！点击「下一关」继续', 'victory');
+                    } else {
+                        showStatus('恭喜通关所有关卡！', 'victory');
+                    }
                     break;
                 }
                 
@@ -516,17 +667,66 @@
             }
         }
         
-        // 绑定按钮事件
+        // 绑定事件监听器
         function bindEvents() {
+            // 按钮点击事件
             moveForwardBtn.addEventListener('click', () => addCommand('moveForward'));
             turnLeftBtn.addEventListener('click', () => addCommand('turnLeft'));
             turnRightBtn.addEventListener('click', () => addCommand('turnRight'));
             runBtn.addEventListener('click', executeCommands);
             resetBtn.addEventListener('click', resetGame);
+            
+            // 下一关按钮事件
+            const nextLevelBtn = document.getElementById('nextLevelBtn');
+            if (nextLevelBtn) {
+                nextLevelBtn.addEventListener('click', nextLevel);
+            }
+        }
+        
+        // 更新关卡选择按钮
+        function updateLevelButtons() {
+            const levelButtonsContainer = document.getElementById('levelButtons');
+            if (levelButtonsContainer) {
+                levelButtonsContainer.innerHTML = '';
+                
+                levels.forEach((level, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = `关卡${index + 1}`;
+                    button.disabled = index >= unlockedLevels;
+                    button.className = index === currentLevel ? 'active' : '';
+                    button.onclick = () => switchToLevel(index);
+                    
+                    // 添加锁定图标
+                    if (index >= unlockedLevels) {
+                        button.innerHTML += ' 🔒';
+                    }
+                    
+                    levelButtonsContainer.appendChild(button);
+                });
+            }
+        }
+        
+        // 加载保存的游戏进度
+        function loadGameProgress() {
+            try {
+                const savedLevel = localStorage.getItem('adventureGameUnlockedLevels');
+                if (savedLevel) {
+                    unlockedLevels = parseInt(savedLevel);
+                    if (isNaN(unlockedLevels) || unlockedLevels < 1) {
+                        unlockedLevels = 1;
+                    } else if (unlockedLevels > levels.length) {
+                        unlockedLevels = levels.length;
+                    }
+                }
+            } catch (e) {
+                // 忽略localStorage错误
+                unlockedLevels = 1;
+            }
         }
         
         // 页面加载完成后初始化游戏
         window.addEventListener('load', () => {
+            loadGameProgress();
             initGrid();
             bindEvents();
         });
