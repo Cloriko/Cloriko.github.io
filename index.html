@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="description" content="一款有趣的编程指令冒险游戏，通过编写指令序列帮助角色到达终点。">
     <title>指令冒险家</title>
     <style>
         body {
@@ -13,6 +15,7 @@
             min-height: 100vh;
             margin: 0;
             background-color: #f0f0f0;
+            padding: 10px;
         }
         
         .game-container {
@@ -22,6 +25,8 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
             display: flex;
             gap: 30px;
+            max-width: 900px;
+            width: 100%;
         }
         
         .game-grid {
@@ -51,6 +56,132 @@
             font-size: 24px;
             transition: all 0.3s ease;
             z-index: 10;
+        }
+        
+        /* 响应式设计 - 适应移动端设备 */
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+                gap: 20px;
+                padding: 15px;
+            }
+            
+            .game-grid {
+                margin: 0 auto;
+                grid-template-columns: repeat(5, 50px);
+                grid-template-rows: repeat(5, 50px);
+                padding: 8px;
+            }
+            
+            .grid-cell {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+            
+            .player {
+                font-size: 20px;
+            }
+            
+            /* 优化按钮交互体验 */
+            button {
+                padding: 12px 16px;
+                font-size: 18px;
+                min-height: 48px;
+                min-width: 44px;
+                border-radius: 8px;
+            }
+            
+            .command-buttons {
+                gap: 12px;
+            }
+            
+            .run-reset-buttons {
+                gap: 15px;
+            }
+            
+            .run-reset-buttons button {
+                flex: 1;
+            }
+            
+            /* 优化序列区域显示 */
+            .sequence-area {
+                padding: 12px;
+            }
+            
+            .command-tag {
+                padding: 8px 12px;
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            
+            .game-container {
+                padding: 10px;
+            }
+            
+            .game-grid {
+                grid-template-columns: repeat(5, 40px);
+                grid-template-rows: repeat(5, 40px);
+                padding: 6px;
+            }
+            
+            .grid-cell {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+            
+            .player {
+                font-size: 16px;
+            }
+            
+            /* 进一步优化小屏幕设备交互体验 */
+            button {
+                padding: 14px 20px;
+                font-size: 20px;
+                min-height: 56px;
+                min-width: 52px;
+            }
+            
+            h2 {
+                font-size: 24px;
+            }
+            
+            h3 {
+                font-size: 18px;
+            }
+            
+            .game-instructions {
+                font-size: 16px;
+                padding: 12px;
+            }
+            
+            .status-message {
+                font-size: 18px;
+                padding: 12px;
+            }
+        }
+        
+        /* 添加触摸反馈效果 */
+        button:active {
+            transform: scale(0.95);
+            transition: transform 0.1s;
+        }
+        
+        /* 增加按钮点击区域 */
+        button::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            z-index: -1;
         }
         
         .wall {
@@ -115,6 +246,8 @@
             border: none;
             border-radius: 5px;
             transition: background-color 0.3s;
+            position: relative; /* 确保伪元素正确定位 */
+            touch-action: manipulation; /* 防止双击缩放 */
         }
         
         button:hover:not(:disabled) {
@@ -409,15 +542,20 @@
         function updatePlayerPosition() {
             if (!playerElement) return;
             
-            const cellSize = 60; // 每个格子的大小
+            // 动态获取单元格大小，确保响应式布局下计算正确
+            const gridCells = document.querySelectorAll('.grid-cell');
+            const cellSize = gridCells.length > 0 ? gridCells[0].offsetWidth : 60; // 默认60px
             const gap = 2; // 格子间距
             const padding = 10; // 网格内边距
             
             const x = playerPosition.x * (cellSize + gap) + padding + cellSize / 2;
             const y = playerPosition.y * (cellSize + gap) + padding + cellSize / 2;
             
-            playerElement.style.left = `${x - 12}px`; // 12是箭头大小的一半
-            playerElement.style.top = `${y - 12}px`;
+            // 动态计算箭头大小的一半
+            const arrowSize = cellSize * 0.4; // 箭头大小为单元格的40%
+            
+            playerElement.style.left = `${x - arrowSize/2}px`;
+            playerElement.style.top = `${y - arrowSize/2}px`;
             playerElement.style.transform = `rotate(${DIRECTIONS[playerDirection].rotation}deg)`;
         }
         
